@@ -24,3 +24,12 @@ int waitForByte(HardwareSerial &serial, int timeoutCnt /*= 1000*/){
     }
     return 1;
 }
+
+void print_hex(char *buffer, int length)
+{
+    for (int i = 0 ; i<length; i++)
+    {
+        Serial.printf("%02x", buffer[i]);
+    }
+    Serial.printf("\n");
+}

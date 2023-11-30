@@ -157,7 +157,6 @@ parsedFrame readFrame(char *frame, HardwareSerial &serial){
     // The length defined by the length bytes is not equal to the actual amount
     // of bytes, escape characters are not counted
     int payloadSize = (lengthBytes[0] << 8) + lengthBytes[1];
-    Serial.printf("S:%i\n", payloadSize);
 
 
     // Read the payload. Return an error if no data is available or

@@ -35,7 +35,6 @@ uint64_t sink_addr = 0x0013a20041f223b8;
 
 // Delays for software-"multithreading"/scheduling
 millisDelay sendDelay;
-
 int measurement_interval = 5000;
 
 
@@ -66,15 +65,17 @@ static void rx_callback(char *buffer)
     // Parse the frame. In case of an error, a negative length is returned.
     result = readFrame(buffer, xbee);
     length = result.length;
-    Serial.printf("Payload Size: %i\n", length);
+    
+    // NOTE: Received messages include transmit status packets and similar.
+    Serial.printf("Received message:\n");
+    Serial.printf("\tSize: %i\n", length);
+    Serial.printf("\tFrame ID: %02x\n", result.frameID);
+    Serial.printf("\tPayload: ");
+    print_hex(buffer, length);
+    Serial.printf("\n");
+    
     if(length <= 0)
       return;
-
-    for (int i = 0 ; i<length; i++)
-    {
-      Serial.printf("%02x", buffer[i]);
-    }
-    Serial.printf("\n");
 
     if(result.frameID == 0x90)  // Frame type: RX packet
     {
@@ -111,18 +112,14 @@ void setup() {
   Serial.begin(115200);
 #ifdef TARGET_STM_32
   xbee.begin(115200);
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_RESET);
 #elif TARGET_ESP_32
   xbee.begin(115200, SERIAL_8N1, RX_PIN, TX_PIN);
-  digitalWrite(15, LOW); 
 #endif
   delay(100);
-#ifdef TARGET_STM_32
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
-#elif TARGET_ESP_32
-  digitalWrite(15, HIGH); 
+
+#ifdef IKS01A3
+  setup_sensors();
 #endif
-  delay(100);
   sendDelay.start(measurement_interval);
   Serial.printf("Setup finished\n");
 }
@@ -130,17 +127,23 @@ void setup() {
 /* Send Zigbee message. */
 void sendMessage()
 {
+  int length;
   if (sendDelay.justFinished())
   {
     sendDelay.repeat();
-    Serial.printf("Send message\n");
-    char payload[] = "X";
-    tx_length = writeFrame(tx_buf, 0x01, 0xFFFE, sink_addr, payload, sizeof(payload)-1);
-    xbee.write(tx_buf, tx_length);
-
+    char payload[99];
+    payload[0] = 0x03;
 #ifdef IKS01A3
-    read_sensors();
+    length = read_sensors(payload);
+#else
+    length = sprintf(&payload[1], "%.2f,%.2f,%.1f,%.1f,%.1f,%.1f", 21.32, 30.56, 999.1, 20.1, 30.2, 40.3);
 #endif
+    Serial.printf("Send message:\n");
+    Serial.printf("\tSize: %d\n", length);
+    Serial.printf("\tPayload: %s\n", payload);
+    Serial1.printf("\n");
+    tx_length = writeFrame(tx_buf, 0x01, 0xFFFE, sink_addr, payload, length + 1);
+    xbee.write(tx_buf, tx_length);
   }
 }
 
