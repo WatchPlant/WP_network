@@ -54,7 +54,7 @@ class LoRaWANClient(object):
                 for topic, data in self.devices.items():
                     if data['timestamp'] >= self.new_start_time - 1:
                         values.append(data['value'])
-                print(f'Wotking with information from {len(values)}/{len(self.devices)} devices: {values}.')
+                print(f'Working with information from {len(values)}/{len(self.devices)} devices: {values}.')
                 
                 down_value = self.update_sink_node(values)
                 
@@ -101,7 +101,7 @@ class LoRaWANClient(object):
     def prepare_tx_frame(payload):
         value = {
             "downlinks": [{
-                "f_port": 15,  # 1-233 allowed
+                "f_port": 10,  # 1-233 allowed
                 "frm_payload": b64encode(bytes.fromhex(payload)).decode(),
                 "priority": "NORMAL"
             }]
