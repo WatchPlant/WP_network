@@ -8,24 +8,26 @@
 
 #define MAXIMUM_BUFFER_SIZE 300
 #define START_DELIMITER     0x7E
-#define RST_PIN             PA0
 
+HardwareSerial xbee(1);  // FIXME: appears to mess with USB and/or LoRa
 
-HardwareSerial xbee(1);
-
-
-// Define RX and TX global buffer
+// Define RX and TX global buffers for Zigbee communication
 char tx_buf[MAXIMUM_BUFFER_SIZE] = {0};
 char rx_buf[MAXIMUM_BUFFER_SIZE] = {0};
 int tx_length = 0;
 
+// WP February demo: address of the two sinks
+const uint64_t sink1 = 0x0013a20041f223b8;
+const uint64_t sink2 = 0x0013a20041f223b2;
+
 // Initial address of the sink
-uint64_t sink_addr = 0x0013a20041f223b8;
+uint64_t sink_addr = sink1;
+
+// Number of failed Zigbee transmissions
 int zigbeeFailed = 0;
 
 // Delays for software-"multithreading"/scheduling
 millisDelay sendDelay;
-
 int measurement_interval = 5000;
 
 
@@ -46,13 +48,18 @@ static void prepareTxFrame(int value, uint8_t port )
 /* Receive LoRaWAN messages. */
 void downLinkDataHandle(McpsIndication_t *mcpsIndication)
 {
-  Serial.printf("+REV DATA:%s,RXSIZE %d,PORT %d\r\n",mcpsIndication->RxSlot?"RXWIN2":"RXWIN1",mcpsIndication->BufferSize,mcpsIndication->Port);
-  Serial.print("+REV DATA:");
+  Serial.printf("[LORA] SLOT:%s, RXSIZE:%d, PORT:%d\r\n",mcpsIndication->RxSlot?"RXWIN2":"RXWIN1",mcpsIndication->BufferSize,mcpsIndication->Port);
+  Serial.printf("[LORA] DATA: ");
+  print_hex((char*)mcpsIndication->Buffer, mcpsIndication->BufferSize);
+  
   uint8_t identifier = mcpsIndication->Buffer[0];
-  Serial.printf("identifier: %02x\n", identifier);
+  Serial.printf("[LORA] Identifier: %02x\n", identifier);
   sendDelay.stop();
 
-  // User-defined identifiers: 0x00: new sink address, 0x01: new measurement interval.
+  // User-defined identifiers: 
+  //  - 0x00: new sink address
+  //  - 0x01: new measurement interval
+  //  - 0x02: WP February demo request
   // This type of node broadcasts the newly received data to other nodes over Zigbee.
   if (identifier == 0x00)
   {
@@ -75,13 +82,20 @@ void downLinkDataHandle(McpsIndication_t *mcpsIndication)
     tx_length = writeFrame(tx_buf, 0x01, 0xFFFF, 0xFFFFFFFFFFFFFFFF, (char*)mcpsIndication->Buffer, mcpsIndication->BufferSize);
     xbee.write(tx_buf, tx_length);
   }
+  else if (identifier == 0x02)
+  {
+    uint64_t dst;
+    uint8_t plant_id = mcpsIndication->Buffer[0];
+    if (plant_id < 5)
+      dst = sink1;
+    else
+      dst = sink2;
+    tx_length = writeFrame(tx_buf, 0x01, 0xFFFF, dst, (char*)mcpsIndication->Buffer, mcpsIndication->BufferSize);
+    xbee.write(tx_buf, tx_length);
+  }
   else
   {
-    for(uint8_t i=0;i<mcpsIndication->BufferSize;i++)
-    {
-      Serial.printf("%02X",mcpsIndication->Buffer[i]);
-    }
-    Serial.println();
+    Serial.printf("[LORA] Unknown identifier: %02x\n", identifier);
   }
   sendDelay.start(measurement_interval);
 }
@@ -114,17 +128,17 @@ static void rx_callback(char *buffer)
     // Parse the frame. In case of an error, a negative length is returned.
     result = readFrame(buffer, xbee);
     length = result.length;
-    //Serial.printf("Payload Size: %i\n", length);
+    
+    // NOTE: Received messages include transmit status packets and similar.
+    Serial.printf("[XBEE] Received message:\n");
+    Serial.printf("\tSize: %i\n", length);
+    Serial.printf("\tFrame ID: %02x\n", result.frameID);
+    Serial.printf("\tPayload: ");
+    print_hex(buffer, length);
+    Serial.printf("\n");
+    
     if(length <= 0)
         return;
-
-    /*
-    for (int i = 0 ; i<length; i++)
-    {
-        Serial.printf("%02x", buffer[i]);
-    }
-    Serial.printf("\n");
-    */
 
     if(result.frameID == 0x90)  // Frame type: RX packet
     {
@@ -138,15 +152,11 @@ static void rx_callback(char *buffer)
       }
     }
   }
-  return;
 }
 
 void setup() {
     Serial.begin(115200);
     xbee.begin(115200, SERIAL_8N1, 12, 13);
-    digitalWrite(15, LOW); 
-    delay(100);
-    digitalWrite(15, HIGH); 
     delay(100);
 
     convert_keystring();
@@ -160,27 +170,26 @@ void setup() {
 /* Send Zigbee message. */
 void sendMessage()
 {
+  int length;
   if (sendDelay.justFinished())
   {
     sendDelay.repeat();
-    Serial.printf("Send message\n");
-    char payload[] = "L";
-    tx_length = writeFrame(tx_buf, 0x01, 0xFFFE, sink_addr, payload, sizeof(payload)-1);
+    char payload[99];
+    payload[0] = 0x03;
+    length = sprintf(&payload[1], "%.2f,%.2f,%.1f,%.1f,%.1f,%.1f", 21.32, 30.56, 999.1, 20.1, 30.2, 40.3);
+    Serial.printf("[XBEE] Send message:\n");
+    Serial.printf("\tSize: %d\n", length);
+    Serial.printf("\tPayload: %s\n", payload);
+    Serial1.printf("\n");
+    tx_length = writeFrame(tx_buf, 0x01, 0xFFFE, sink_addr, payload, length + 1);
     xbee.write(tx_buf, tx_length);
   }
 }
 
 
-void loop() {
+void loop()
+{
   sendMessage();
-  /*
-  Serial.printf("Payload length: %i\n", tx_length);
-  for (int i = 0 ; i<tx_length; i++)
-  {
-    Serial.printf("%02x", tx_buf[i]);
-  }
-  Serial.printf("\n");
-  */
   rx_callback(rx_buf);
 
   switch( deviceState )
