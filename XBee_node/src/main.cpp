@@ -10,6 +10,10 @@
 #include "IKS01A3.h"
 #endif
 
+#ifdef SMS
+#include "SMS.h"
+#endif
+
 #include "zigbee.h"
 #include "utils.h"
 
@@ -102,6 +106,18 @@ static void rx_callback(char *buffer)
           measurement_interval |= (int)buffer[i+13] << ((3-i)*8);
         }
       }
+      else if (identifier == 0x04)
+      {
+        char phone_number[30];
+        char message[150];
+        int phone_length = buffer[13];
+
+        sprintf(phone_number, "%.*s\n", phone_length, buffer + 14);
+        sprintf(message, "%s\n", buffer + 14 + phone_length);
+
+        Serial.printf("%s%s\n", phone_number, message);
+        send_SMS(phone_number, message);
+      }
       sendDelay.start(measurement_interval);
     }
   }
@@ -120,6 +136,11 @@ void setup() {
 #ifdef IKS01A3
   setup_sensors();
 #endif
+
+#ifdef SMS
+  setup_SMS();
+#endif
+
   sendDelay.start(measurement_interval);
   Serial.printf("Setup finished\n");
 }
@@ -150,13 +171,8 @@ void sendMessage()
 
 void loop() {
   sendMessage();
-  /*
-  Serial.printf("Payload length: %i\n", tx_length);
-  for (int i = 0 ; i<tx_length; i++)
-  {
-    Serial.printf("%02x", tx_buf[i]);
-  }
-  Serial.printf("\n");
-  */
   rx_callback(rx_buf);
+#ifdef SMS
+  // loop_SMS();
+#endif
 }
