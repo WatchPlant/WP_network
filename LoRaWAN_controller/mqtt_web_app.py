@@ -1,10 +1,12 @@
-import dash
-from dash import dcc, html
-import dash_bootstrap_components as dbc
-from dash.dependencies import Input, Output, State
 import base64
-import paho.mqtt.client as mqtt
+import datetime
 import json
+
+import dash
+import dash_bootstrap_components as dbc
+import paho.mqtt.client as mqtt
+from dash import dcc, html
+from dash.dependencies import Input, Output, State
 
 app = dash.Dash(__name__)
 
@@ -57,13 +59,15 @@ mqtt_client.loop_start()
 )
 def on_submit(n_clicks, mobile_input, plant_input):
     if n_clicks > 0:
-        command = bytes.fromhex('02')
-        data = f"{plant_input},{mobile_input}"
-
+        # 1st byte is message type id.
+        # 2nd byte is the plant number so it's easier to parse on the microcontroller.
+        # 3rd+ bytes are the mobile phone number.
+        payload = bytearray([2, int(plant_input)]) + mobile_input.encode()
+                                                
         value = {
             "downlinks": [{
                 "f_port": 15,  # 1-233 allowed
-                "frm_payload": base64.b64encode(command + data.encode()).decode(),
+                "frm_payload": base64.b64encode(payload).decode(),
                 "priority": "NORMAL"
             }]
             }
@@ -72,7 +76,7 @@ def on_submit(n_clicks, mobile_input, plant_input):
         # Publish to MQTT
         mqtt_client.publish(mqtt_topic, value)
 
-        return dbc.Alert(f'Successfully sent to MQTT.\n{value}', color="success")
+        return dbc.Alert(f'[{datetime.datetime.now()}] Successfully sent to MQTT.\n{value}', color="success")
 
     return ''
 

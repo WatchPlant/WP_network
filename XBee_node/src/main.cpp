@@ -35,7 +35,7 @@ char rx_buf[MAXIMUM_BUFFER_SIZE] = {0};
 int tx_length = 0;
 
 // Initial address of the sink
-uint64_t sink_addr = 0x0013a20041f223b8;
+uint64_t sink_addr = 0x0013a20041f223b2;
 
 // Delays for software-"multithreading"/scheduling
 millisDelay sendDelay;
@@ -106,18 +106,19 @@ static void rx_callback(char *buffer)
           measurement_interval |= (int)buffer[i+13] << ((3-i)*8);
         }
       }
+#ifdef SMS
       else if (identifier == 0x04)
       {
         char phone_number[30];
         char message[150];
         int phone_length = buffer[13];
 
-        sprintf(phone_number, "%.*s\n", phone_length, buffer + 14);
-        sprintf(message, "%s\n", buffer + 14 + phone_length);
+        sprintf(phone_number, "%.*s", phone_length, buffer + 14);
+        sprintf(message, "%s", buffer + 14 + phone_length);
 
-        Serial.printf("%s%s\n", phone_number, message);
         send_SMS(phone_number, message);
       }
+#endif
       sendDelay.start(measurement_interval);
     }
   }

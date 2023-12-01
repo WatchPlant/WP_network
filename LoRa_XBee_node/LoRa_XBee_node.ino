@@ -21,7 +21,7 @@ const uint64_t sink1 = 0x0013a20041f223b8;
 const uint64_t sink2 = 0x0013a20041f223b2;
 
 // Initial address of the sink
-uint64_t sink_addr = sink1;
+uint64_t sink_addr = sink2;
 
 // Number of failed Zigbee transmissions
 int zigbeeFailed = 0;
@@ -86,7 +86,7 @@ void downLinkDataHandle(McpsIndication_t *mcpsIndication)
   {
     uint64_t dst;
     uint8_t plant_id = mcpsIndication->Buffer[0];
-    if (plant_id < 5)
+    if (plant_id >= 7)
       dst = sink1;
     else
       dst = sink2;
