@@ -15,7 +15,7 @@ class data2csv:
 
         self.csvfile = open(file_path / file_name, 'w')
         self.csvwriter = csv.writer(self.csvfile)
-        
+
         # Data fields are loaded in their original order by default
         # and we always want to add our timestamp.
         header = ['timestamp','differential_potential']
@@ -27,7 +27,7 @@ class data2csv:
 
     def write2csv(self, data):
         try:
-            
+
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             data4csv = [timestamp,data]
             #print(data4csv)
@@ -35,6 +35,6 @@ class data2csv:
             self.csvwriter = csv.writer(self.csvfile)
             self.csvwriter.writerow(data4csv)
             self.csvfile.close()
-            
+
         except Exception as e:
             return e
