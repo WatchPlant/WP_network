@@ -1,15 +1,16 @@
+
 import json
+import os
 import time
-from base64 import b64encode, b64decode
+from base64 import b64decode, b64encode
+
 import paho.mqtt.client as mqtt
-from queue import Queue
 
-# Insert username and password for TTN here 
-USER = ''
-PASS = ''
+TTN_USER = os.environ["TTN_USER"]
+TTN_PASS = os.environ["TTN_PASS"]
 
 
-class LoRaWANClient(object):
+class LoRaWANController(object):
     COMMANDS = {
         'reconf_sink': '00',
         'chg_interval': '01',
@@ -28,7 +29,7 @@ class LoRaWANClient(object):
         self.client = mqtt.Client()
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
-        self.client.username_pw_set(USER, PASS)
+        self.client.username_pw_set(TTN_USER, TTN_PASS)
         self.client.tls_set()
 
         self.client.connect("eu1.cloud.thethings.network", 8883, 60)
@@ -58,7 +59,7 @@ class LoRaWANClient(object):
                 
                 down_value = self.update_sink_node(values)
                 
-                value = LoRaWANClient.prepare_tx_frame(down_value)
+                value = LoRaWANController.prepare_tx_frame(down_value)
                 print(f'Publishing {value}')
                 for topic in self.devices:   
                     self.client.publish(f"{topic}/down/replace", value)
@@ -86,16 +87,16 @@ class LoRaWANClient(object):
         
         if topic_suffix == 'up':
             # Read data
-            device, timestamp, value = LoRaWANClient.decode_rx_frame(data)
+            device, timestamp, value = LoRaWANController.decode_rx_frame(data)
             print(f'Received @{device}: {value}')
             
             self.devices[topic_prefix] = {
                 'device': device, 
-                'timestamp': LoRaWANClient.convert_timestamp(timestamp),
+                'timestamp': LoRaWANController.convert_timestamp(timestamp),
                 'value': value
             }
             if self.new_start_time is None:
-                self.new_start_time = LoRaWANClient.convert_timestamp(timestamp)
+                self.new_start_time = LoRaWANController.convert_timestamp(timestamp)
             
     @staticmethod
     def prepare_tx_frame(payload):
@@ -126,7 +127,7 @@ class LoRaWANClient(object):
             
             
 def main():
-    client = LoRaWANClient()
+    client = LoRaWANController()
     try:
         client.run()
     except KeyboardInterrupt:
