@@ -16,7 +16,7 @@ class LoRaWANController(object):
         'chg_interval': '01',
         'nop': 'FF',
     }
-    
+
     def __init__(self):
         self.wait_time = 10
         self.consensus_percentage = 0.5
@@ -25,7 +25,7 @@ class LoRaWANController(object):
 
         self.devices = {}
         self.new_start_time = None
-        
+
         self.client = mqtt.Client()
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
@@ -33,16 +33,16 @@ class LoRaWANController(object):
         self.client.tls_set()
 
         self.client.connect("eu1.cloud.thethings.network", 8883, 60)
-        
+
     def update_sink_node(self, data):
         num_of_devices_reporting_fail = sum(1 for d in data if d > 0)
         sink_failed = num_of_devices_reporting_fail > self.consensus_percentage * len(data)
-        
+
         if sink_failed:
             self.current_sink = (self.current_sink + 1) % len(self.available_sinks)
             print(f'Sink failed! New sink: {self.current_sink} : {self.available_sinks[self.current_sink]}')
             return self.COMMANDS['reconf_sink'] + self.available_sinks[self.current_sink]
-                
+
         return self.COMMANDS['nop']
 
     def run(self):
@@ -56,15 +56,15 @@ class LoRaWANController(object):
                     if data['timestamp'] >= self.new_start_time - 1:
                         values.append(data['value'])
                 print(f'Working with information from {len(values)}/{len(self.devices)} devices: {values}.')
-                
+
                 down_value = self.update_sink_node(values)
-                
+
                 value = LoRaWANController.prepare_tx_frame(down_value)
                 print(f'Publishing {value}')
                 for topic in self.devices:   
                     self.client.publish(f"{topic}/down/replace", value)
                 self.new_start_time = None
-            
+
             time.sleep(0.1)
             self.client.loop()
 
@@ -81,15 +81,15 @@ class LoRaWANController(object):
         topic_components = msg.topic.split('/')
         topic_prefix = '/'.join(topic_components[:4])
         topic_suffix = '/'.join(topic_components[4:])
-        
+
         data = json.loads(msg.payload)
         # print(json.dumps(data, indent=2))
-        
+
         if topic_suffix == 'up':
             # Read data
             device, timestamp, value = LoRaWANController.decode_rx_frame(data)
             print(f'Received @{device}: {value}')
-            
+
             self.devices[topic_prefix] = {
                 'device': device, 
                 'timestamp': LoRaWANController.convert_timestamp(timestamp),
@@ -97,7 +97,7 @@ class LoRaWANController(object):
             }
             if self.new_start_time is None:
                 self.new_start_time = LoRaWANController.convert_timestamp(timestamp)
-            
+
     @staticmethod
     def prepare_tx_frame(payload):
         value = {
@@ -107,25 +107,25 @@ class LoRaWANController(object):
                 "priority": "NORMAL"
             }]
             }
-            
+
         value = json.dumps(value)
         return value
-    
+
     @staticmethod
     def decode_rx_frame(data):
         payload = data['uplink_message']['frm_payload']
         value = int.from_bytes(b64decode(payload), 'little')
         device = data['end_device_ids']['device_id']
         timestamp = data['received_at']
-        
+
         return device, timestamp, value
-    
+
     @staticmethod
     def convert_timestamp(timestamp):
         return time.mktime(time.strptime(timestamp.split('.')[0], '%Y-%m-%dT%H:%M:%S')) + 2 * 60 * 60
-    
-            
-            
+
+
+
 def main():
     client = LoRaWANController()
     try:

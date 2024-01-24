@@ -94,7 +94,7 @@ def on_submit(n_clicks, mobile_input, plant_input):
         if not is_valid_phone_number(mobile_input):
             return dbc.Alert('Invalid phone number. Please enter a valid European phone number.', color="danger")
 
-        
+
         # 1st byte is message type id.
         # 2nd byte is the plant number so it's easier to parse on the microcontroller.
         # 3rd+ bytes are the mobile phone number.
