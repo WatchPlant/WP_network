@@ -26,12 +26,12 @@ void setup_SMS() {
     while(1);
   }
 
-  char PIN[5] = "6031";
-  if (! fona.unlockSIM(PIN)) {
-    Serial.println(F("Failed to unlock SIM card!"));
-  } else {
-    Serial.println(F("SIM card unlocked!"));
-  }
+  // char PIN[5] = "6031";
+  // if (! fona.unlockSIM(PIN)) {
+  //   Serial.println(F("Failed to unlock SIM card!"));
+  // } else {
+  //   Serial.println(F("SIM card unlocked!"));
+  // }
 
 
   fonaSerial->print("AT+CNMI=2,1\r\n");  //set up the FONA to send a +CMTI notification when an SMS is received

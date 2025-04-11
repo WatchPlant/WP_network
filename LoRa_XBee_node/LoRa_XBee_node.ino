@@ -85,8 +85,8 @@ void downLinkDataHandle(McpsIndication_t *mcpsIndication)
   else if (identifier == 0x02)
   {
     uint64_t dst;
-    uint8_t plant_id = mcpsIndication->Buffer[0];
-    if (plant_id >= 7)
+    uint8_t plant_id = mcpsIndication->Buffer[1];
+    if (plant_id >= 6)
       dst = sink1;
     else
       dst = sink2;
